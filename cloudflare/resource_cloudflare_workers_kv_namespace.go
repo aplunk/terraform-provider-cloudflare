@@ -78,6 +78,32 @@ func resourceCloudflareWorkersKVNamespaceDelete(d *schema.ResourceData, meta int
 	return nil
 }
 
-func resourceCloudflareWorkersKVNamespaceImport(d *schema.ResourceData, meta interface{}) ([]*schema.ResourceData, error) {
-	return nil, nil
+func resourceCloudflareWorkersKVNamespaceImport(d *schema.ResourceData, meta interface{}) (result []*schema.ResourceData, err error) {
+	client := meta.(*cloudflare.API)
+
+	resp, err := client.ListWorkersKVNamespaces(context.Background())
+	if err != nil {
+		return nil, errors.Wrap(err, "error importing workers kv namespaces")
+	}
+
+	id := d.Id()
+	var filter func(id string) bool
+	switch strings.ToLower(id) {
+	case "all":
+		filter = func(_ string) bool { return true }
+	default:
+		filter = func(nxtID string) bool { return id == nxtID }
+	}
+
+	for _, namespace := range resp.Result {
+		if !filter(namespace.ID) {
+			continue
+		}
+		data := &schema.ResourceData{}
+		data.SetId(namespace.ID)
+		data.Set("title", namespace.Title)
+		result = append(result, data)
+	}
+
+	return result, err
 }
