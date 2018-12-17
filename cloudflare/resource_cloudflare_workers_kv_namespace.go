@@ -3,6 +3,7 @@ package cloudflare
 import (
 	"context"
 	"fmt"
+	"strings"
 
 	cloudflare "github.com/cloudflare/cloudflare-go"
 	"github.com/hashicorp/terraform/helper/schema"
@@ -50,7 +51,7 @@ func resourceCloudflareWorkersKVNamespaceUpdate(d *schema.ResourceData, meta int
 	id := d.Get("id").(string)
 	title := d.Get("title").(string)
 
-	resp, err := client.UpdateWorkersKVNamespace(context.Background(), id,
+	_, err := client.UpdateWorkersKVNamespace(context.Background(), id,
 		&cloudflare.WorkersKVNamespaceRequest{Title: title},
 	)
 
@@ -62,6 +63,18 @@ func resourceCloudflareWorkersKVNamespaceUpdate(d *schema.ResourceData, meta int
 }
 
 func resourceCloudflareWorkersKVNamespaceDelete(d *schema.ResourceData, meta interface{}) error {
+	client := meta.(*cloudflare.API)
+	id := d.Get("id").(string)
+
+	_, err := client.DeleteWorkersKVNamespace(context.Background(), id)
+	if err != nil {
+		if strings.Contains(err.Error(), "HTTP status 404") {
+			return nil
+		}
+
+		return errors.Wrap(err, "error deleting workers kv namespace")
+	}
+
 	return nil
 }
 
