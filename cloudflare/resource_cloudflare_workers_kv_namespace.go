@@ -6,12 +6,12 @@ import (
 
 	cloudflare "github.com/cloudflare/cloudflare-go"
 	"github.com/hashicorp/terraform/helper/schema"
+	"github.com/pkg/errors"
 )
 
 func resourceCloudflareWorkersKVNamespace() *schema.Resource {
 	return &schema.Resource{
 		Create: resourceCloudflareWorkersKVNamespaceCreate,
-		Read:   resourceCloudflareWorkersKVNamespaceRead,
 		Update: resourceCloudflareWorkersKVNamespaceUpdate,
 		Delete: resourceCloudflareWorkersKVNamespaceDelete,
 		Importer: &schema.ResourceImporter{
@@ -45,11 +45,19 @@ func resourceCloudflareWorkersKVNamespaceCreate(d *schema.ResourceData, meta int
 	return nil
 }
 
-func resourceCloudflareWorkersKVNamespaceRead(d *schema.ResourceData, meta interface{}) error {
-	return nil
-}
-
 func resourceCloudflareWorkersKVNamespaceUpdate(d *schema.ResourceData, meta interface{}) error {
+	client := meta.(*cloudflare.API)
+	id := d.Get("id").(string)
+	title := d.Get("title").(string)
+
+	resp, err := client.UpdateWorkersKVNamespace(context.Background(), id,
+		&cloudflare.WorkersKVNamespaceRequest{Title: title},
+	)
+
+	if err != nil {
+		return errors.Wrap(err, "error updating worker kv namespace")
+	}
+
 	return nil
 }
 
