@@ -1,6 +1,12 @@
 package cloudflare
 
-import "github.com/hashicorp/terraform/helper/schema"
+import (
+	"context"
+	"fmt"
+
+	cloudflare "github.com/cloudflare/cloudflare-go"
+	"github.com/hashicorp/terraform/helper/schema"
+)
 
 func resourceCloudflareWorkersKVNamespace() *schema.Resource {
 	return &schema.Resource{
@@ -12,10 +18,6 @@ func resourceCloudflareWorkersKVNamespace() *schema.Resource {
 			State: resourceCloudflareWorkersKVNamespaceImport,
 		},
 		Schema: map[string]*schema.Schema{
-			"id": &schema.Schema{
-				Type:     schema.TypeString,
-				Computed: true,
-			},
 			"title": &schema.Schema{
 				Type:     schema.TypeString,
 				Required: true,
@@ -25,6 +27,21 @@ func resourceCloudflareWorkersKVNamespace() *schema.Resource {
 }
 
 func resourceCloudflareWorkersKVNamespaceCreate(d *schema.ResourceData, meta interface{}) error {
+	client := meta.(*cloudflare.API)
+	title := d.Get("title").(string)
+	if title == "" {
+		return fmt.Errorf("missing required title field")
+	}
+
+	resp, err := client.CreateWorkersKVNamespace(context.Background(),
+		&cloudflare.WorkersKVNamespaceRequest{Title: title},
+	)
+
+	if err != nil {
+		return err
+	}
+
+	d.SetId(resp.Result.Title)
 	return nil
 }
 
