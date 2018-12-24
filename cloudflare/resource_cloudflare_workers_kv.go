@@ -18,7 +18,7 @@ func resourceCloudflareWorkersKV() *schema.Resource {
 		Create: resourceCloudflareWorkersKVCreate,
 		Delete: resourceCloudflareWorkersKVDelete,
 		Read:   resourceCloudflareWorkersKVRead,
-		Update: resourceCloudflareWorkersKVUpdate,
+		Update: resourceCloudflareWorkersKVCreate,
 		Importer: &schema.ResourceImporter{
 			State: resourceCloudflareWorkersKVImport,
 		},
@@ -36,6 +36,7 @@ func resourceCloudflareWorkersKV() *schema.Resource {
 			"key": &schema.Schema{
 				Type:     schema.TypeString,
 				Required: true,
+				ForceNew: true,
 			},
 			"namespace_id": &schema.Schema{
 				Type:     schema.TypeString,
@@ -111,14 +112,26 @@ func resourceCloudflareWorkersKVCreate(d *schema.ResourceData, meta interface{})
 	return err
 }
 
-func resourceCloudflareWorkersKVUpdate(d *schema.ResourceData, meta interface{}) error {
-	return nil
-}
-
 func resourceCloudflareWorkersKVDelete(d *schema.ResourceData, meta interface{}) error {
-	return nil
+	client := meta.(*cloudflare.API)
+
+	namespaceID := d.Get("namespace_id").(string)
+	key := d.Get("key").(string)
+
+	_, err := client.DeleteWorkersKV(context.Background(), namespaceID, key)
+	return err
 }
 
 func resourceCloudflareWorkersKVImport(d *schema.ResourceData, meta interface{}) (result []*schema.ResourceData, err error) {
-	return nil, nil
+	client := meta.(*cloudflare.API)
+
+	namespaceID := d.Get("namespace_id").(string)
+	key := d.Get("key").(string)
+
+	data, err := client.ReadWorkersKV(context.Background(), namespaceID, key)
+	if err != nil {
+		return nil, err
+	}
+
+	return []*schema.ResourceData{d}, setSha256(d, data)
 }
