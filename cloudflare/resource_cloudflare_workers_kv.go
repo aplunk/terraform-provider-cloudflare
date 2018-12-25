@@ -22,6 +22,7 @@ func resourceCloudflareWorkersKV() *schema.Resource {
 		Importer: &schema.ResourceImporter{
 			State: resourceCloudflareWorkersKVImport,
 		},
+		CustomizeDiff: updateComputed,
 		Schema: map[string]*schema.Schema{
 			"content": {
 				Type:          schema.TypeString,
@@ -55,25 +56,41 @@ func resourceCloudflareWorkersKV() *schema.Resource {
 	}
 }
 
-func resourceCloudflareWorkersKVRead(d *schema.ResourceData, meta interface{}) error {
-	client := meta.(*cloudflare.API)
-	namespaceID := d.Get("namespaceID").(string)
-	key := d.Get("key").(string)
-
-	value, err := client.ReadWorkersKV(context.Background(), namespaceID, key)
+func updateComputed(d *schema.ResourceDiff, meta interface{}) error {
+	current := d.Get("sha256")
+	next, err := getValue(d)
 	if err != nil {
 		return err
 	}
 
-	return setSha256(d, value)
+	if current != hash(next) {
+		d.SetNewComputed("sha256")
+	}
+	return nil
+}
+
+func hash(data []byte) string {
+	hasher := sha256.New()
+	hasher.Write(data)
+	return base64.URLEncoding.EncodeToString(hasher.Sum(nil))
 }
 
 func setSha256(d *schema.ResourceData, data []byte) error {
-	hasher := sha256.New()
-	return d.Set("sha256", string(hasher.Sum(data)))
+	return d.Set("sha256", hash(data))
 }
 
-func getValue(d *schema.ResourceData) ([]byte, error) {
+func setWorkersKVID(d *schema.ResourceData) {
+	d.SetId(fmt.Sprintf("%s/%s",
+		d.Get("namespace_id").(string),
+		d.Get("key").(string),
+	))
+}
+
+type data interface {
+	GetOk(string) (interface{}, bool)
+}
+
+func getValue(d data) ([]byte, error) {
 	if source, ok := d.GetOk("source"); ok {
 		fname, err := home.Expand(source.(string))
 		if err != nil {
@@ -94,6 +111,20 @@ func getValue(d *schema.ResourceData) ([]byte, error) {
 	return nil, fmt.Errorf("source, content, or content_base64 must be set")
 }
 
+func resourceCloudflareWorkersKVRead(d *schema.ResourceData, meta interface{}) error {
+	client := meta.(*cloudflare.API)
+	namespaceID := d.Get("namespace_id").(string)
+	key := d.Get("key").(string)
+
+	value, err := client.ReadWorkersKV(context.Background(), namespaceID, key)
+	if err != nil {
+		return err
+	}
+	setWorkersKVID(d)
+
+	return setSha256(d, value)
+}
+
 func resourceCloudflareWorkersKVCreate(d *schema.ResourceData, meta interface{}) error {
 	client := meta.(*cloudflare.API)
 
@@ -104,12 +135,13 @@ func resourceCloudflareWorkersKVCreate(d *schema.ResourceData, meta interface{})
 		return err
 	}
 
-	if err = setSha256(d, value); err != nil {
+	_, err = client.CreateWorkersKV(context.Background(), namespaceID, key, value)
+	if err != nil {
 		return err
 	}
 
-	_, err = client.CreateWorkersKV(context.Background(), namespaceID, key, value)
-	return err
+	setWorkersKVID(d)
+	return setSha256(d, value)
 }
 
 func resourceCloudflareWorkersKVDelete(d *schema.ResourceData, meta interface{}) error {
@@ -132,6 +164,7 @@ func resourceCloudflareWorkersKVImport(d *schema.ResourceData, meta interface{})
 	if err != nil {
 		return nil, err
 	}
+	setWorkersKVID(d)
 
 	return []*schema.ResourceData{d}, setSha256(d, data)
 }
