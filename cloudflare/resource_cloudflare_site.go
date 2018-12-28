@@ -27,11 +27,21 @@ func resourceCloudflareWorkersKVSite() *schema.Resource {
 				Type:     schema.TypeString,
 				Required: true,
 			},
+			"namespace_id": {
+				Type:     schema.TypeString,
+				Required: true,
+			},
+			"chunk_size": {
+				Type:    schema.TypeInt,
+				Default: 1024,
+			},
 		},
 	}
 }
 
-func uploadLargeFile(pathStr, prefix string, info os.FileInfo, split int, uploader func(string, []byte) error) (chunks []string, err error) {
+type uploader func(key string, value []byte) error
+
+func uploadFile(pathStr, prefix string, info os.FileInfo, split int, uploadKV uploader) (keys []string, err error) {
 	fh, err := os.Open(path.Join(pathStr, info.Name()))
 	if err != nil {
 		return nil, err
@@ -48,27 +58,24 @@ func uploadLargeFile(pathStr, prefix string, info os.FileInfo, split int, upload
 
 		key := fmt.Sprintf("%s_%d", prefix, i%vSize)
 
-		if err := uploader(key, data[:read]); err != nil {
+		if err := uploadKV(key, data[:read]); err != nil {
 			return nil, err
 		}
-		chunks = append(chunks, key)
+		keys = append(keys, key)
 	}
 
-	return chunks, nil
+	return keys, nil
 }
 
-func resourceCloudflareSiteCreate(d *schema.ResourceData, meta interface{}) error {
-	client := meta.(*cloudflare.API)
-	source := d.Get("source").(string)
-	namespaceID := d.Get("namespace_id").(string)
-
+func uploadSite(namespaceID, source string, limit int, uploadKV uploader) (map[string][]string, error) {
 	largeFiles := make(map[string][]string)
-
-	err := filepath.Walk(source, func(pathStr string, info os.FileInfo, err error) error {
+	return largeFiles, filepath.Walk(source, func(pathStr string, info os.FileInfo, err error) error {
+		// fail early if an error is passed in
 		if err != nil {
 			return err
 		}
 
+		// unable to upload directories
 		if info.IsDir() {
 			return nil
 		}
@@ -76,28 +83,37 @@ func resourceCloudflareSiteCreate(d *schema.ResourceData, meta interface{}) erro
 		// normalize the file key
 		key := fmt.Sprintf("%s_%s", strings.Replace(pathStr, string(filepath.Separator), "_", -1), info.Name())
 
-		split := 1024
-		uploader := func(key string, value []byte) error {
-			_, err := client.CreateWorkersKV(context.Background(), namespaceID, key, value)
-			return err
-		}
-
-		if info.Size() > int64(split) {
-			keys, err := uploadLargeFile(pathStr, key, info, split, uploader)
+		// upload large files in chunks returning a mapping of the chunks which will
+		// become a manifest enabling reconstructing the original file
+		if info.Size() > int64(limit) {
+			chunks, err := uploadFile(pathStr, key, info, limit, uploadKV)
 			if err != nil {
 				return err
 			}
-			largeFiles[key] = keys
+			largeFiles[key] = chunks
 			return nil
 		}
-		return nil
-	})
 
-	if err != nil {
+		// files smaller than the limit can be uploaded without returning a mapping
+		_, err = uploadFile(pathStr, key, info, limit, uploadKV)
+		return err
+	})
+}
+
+func resourceCloudflareSiteCreate(d *schema.ResourceData, meta interface{}) error {
+	client := meta.(*cloudflare.API)
+	source := d.Get("source").(string)
+	namespaceID := d.Get("namespace_id").(string)
+	chunkSize := d.Get("chunk_size").(int)
+
+	uploader := func(key string, value []byte) error {
+		_, err := client.CreateWorkersKV(context.Background(), namespaceID, key, value)
 		return err
 	}
 
-	return nil
+	manifest, err := uploadSite(namespaceID, source, chunkSize, uploader)
+	_ = manifest
+	return err
 }
 
 func resourceCloudflareSiteDelete(d *schema.ResourceData, meta interface{}) error {
