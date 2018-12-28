@@ -85,7 +85,6 @@ func TestUploadSite(t *testing.T) {
 				return nil
 			}
 			t.Logf("received key:%s value:%d", key, len(value))
-			t.Logf("skipping key:%s value:%d", test.key, len(test.data))
 		}
 		t.Fatalf("key:%s value:%d not in %+v", key, len(value), keys)
 		return nil

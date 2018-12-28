@@ -3,7 +3,7 @@ package cloudflare
 import (
 	"context"
 	"fmt"
-	"log"
+	"io"
 	"os"
 	"path/filepath"
 	"strings"
@@ -57,8 +57,7 @@ func uploadFile(pathStr, prefix string, info os.FileInfo, split int, uploadKV up
 	for i := 0; i < vSize; i += split {
 		data := make([]byte, vSize)
 		read, err := fh.ReadAt(data, int64(i))
-		if err != nil {
-			log.Printf("read:%d", read)
+		if err != nil && err != io.EOF {
 			return nil, errors.WithStack(err)
 		}
 
@@ -71,6 +70,7 @@ func uploadFile(pathStr, prefix string, info os.FileInfo, split int, uploadKV up
 			return nil, errors.WithStack(err)
 		}
 		keys = append(keys, key)
+
 	}
 
 	return keys, nil
