@@ -3,13 +3,14 @@ package cloudflare
 import (
 	"context"
 	"fmt"
+	"log"
 	"os"
-	"path"
 	"path/filepath"
 	"strings"
 
 	cloudflare "github.com/cloudflare/cloudflare-go"
 	"github.com/hashicorp/terraform/helper/schema"
+	"github.com/pkg/errors"
 )
 
 func resourceCloudflareWorkersKVSite() *schema.Resource {
@@ -42,24 +43,32 @@ func resourceCloudflareWorkersKVSite() *schema.Resource {
 type uploader func(key string, value []byte) error
 
 func uploadFile(pathStr, prefix string, info os.FileInfo, split int, uploadKV uploader) (keys []string, err error) {
-	fh, err := os.Open(path.Join(pathStr, info.Name()))
+	fh, err := os.Open(pathStr)
 	if err != nil {
-		return nil, err
+		return nil, errors.WithStack(err)
 	}
 	defer fh.Close()
 
 	vSize := int(info.Size())
+	if vSize == 0 {
+		return nil, errors.Errorf("refusing to upload empty file:%s", info.Name())
+	}
+
 	for i := 0; i < vSize; i += split {
 		data := make([]byte, vSize)
 		read, err := fh.ReadAt(data, int64(i))
 		if err != nil {
-			return nil, err
+			log.Printf("read:%d", read)
+			return nil, errors.WithStack(err)
 		}
 
-		key := fmt.Sprintf("%s_%d", prefix, i%vSize)
+		key := prefix
+		if i != 0 {
+			key = fmt.Sprintf("%s_%d", prefix, int(vSize/i))
+		}
 
 		if err := uploadKV(key, data[:read]); err != nil {
-			return nil, err
+			return nil, errors.WithStack(err)
 		}
 		keys = append(keys, key)
 	}
@@ -72,7 +81,7 @@ func uploadSite(namespaceID, source string, limit int, uploadKV uploader) (map[s
 	return largeFiles, filepath.Walk(source, func(pathStr string, info os.FileInfo, err error) error {
 		// fail early if an error is passed in
 		if err != nil {
-			return err
+			return errors.WithStack(err)
 		}
 
 		// unable to upload directories
@@ -81,14 +90,14 @@ func uploadSite(namespaceID, source string, limit int, uploadKV uploader) (map[s
 		}
 
 		// normalize the file key
-		key := fmt.Sprintf("%s_%s", strings.Replace(pathStr, string(filepath.Separator), "_", -1), info.Name())
+		key := strings.Replace(pathStr, string(filepath.Separator), "_", -1)
 
 		// upload large files in chunks returning a mapping of the chunks which will
 		// become a manifest enabling reconstructing the original file
 		if info.Size() > int64(limit) {
 			chunks, err := uploadFile(pathStr, key, info, limit, uploadKV)
 			if err != nil {
-				return err
+				return errors.WithStack(err)
 			}
 			largeFiles[key] = chunks
 			return nil
@@ -96,7 +105,7 @@ func uploadSite(namespaceID, source string, limit int, uploadKV uploader) (map[s
 
 		// files smaller than the limit can be uploaded without returning a mapping
 		_, err = uploadFile(pathStr, key, info, limit, uploadKV)
-		return err
+		return errors.WithStack(err)
 	})
 }
 
