@@ -135,7 +135,7 @@ func resourceCloudflareWorkersKVCreate(d *schema.ResourceData, meta interface{})
 		return err
 	}
 
-	_, err = client.CreateWorkersKV(context.Background(), namespaceID, key, value)
+	_, err = client.WriteWorkersKV(context.Background(), namespaceID, key, value)
 	if err != nil {
 		return err
 	}
