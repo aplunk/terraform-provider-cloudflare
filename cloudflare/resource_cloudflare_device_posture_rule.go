@@ -58,8 +58,9 @@ func resourceCloudflareDevicePostureRule() *schema.Resource {
 				},
 			},
 			"input": {
-				Type:     schema.TypeMap,
+				Type:     schema.TypeList,
 				Optional: true,
+				Computed: true,
 				Elem: &schema.Resource{
 					Schema: map[string]*schema.Schema{
 						"id": {
@@ -75,6 +76,7 @@ func resourceCloudflareDevicePostureRule() *schema.Resource {
 						"exists": {
 							Type:        schema.TypeBool,
 							Optional:    true,
+							Computed:    true,
 							Description: "Checks if the file should exist.",
 						},
 						"thumbprint": {
@@ -90,16 +92,19 @@ func resourceCloudflareDevicePostureRule() *schema.Resource {
 						"running": {
 							Type:        schema.TypeBool,
 							Optional:    true,
+							Computed:    true,
 							Description: "Checks if the application should be running",
 						},
 						"require_all": {
 							Type:        schema.TypeBool,
 							Optional:    true,
+							Computed:    true,
 							Description: "True if all drives must be encrypted.",
 						},
 						"enabled": {
 							Type:        schema.TypeBool,
 							Optional:    true,
+							Computed:    true,
 							Description: "True if the firewall must be enabled.",
 						},
 						"version": {
@@ -141,11 +146,7 @@ func resourceCloudflareDevicePostureRuleCreate(d *schema.ResourceData, meta inte
 		return fmt.Errorf("error creating Device Posture Rule with provided match input: %s", err)
 	}
 
-	err = setDevicePostureRuleInput(&newDevicePostureRule, d)
-	if err != nil {
-		return fmt.Errorf("error creating Device Posture Rule, invalid input: %s", err)
-	}
-
+	setDevicePostureRuleInput(&newDevicePostureRule, d)
 	log.Printf("[DEBUG] Creating Cloudflare Device Posture Rule from struct: %+v", newDevicePostureRule)
 
 	rule, err := client.CreateDevicePostureRule(context.Background(), accountID, newDevicePostureRule)
@@ -199,11 +200,7 @@ func resourceCloudflareDevicePostureRuleUpdate(d *schema.ResourceData, meta inte
 		return fmt.Errorf("error creating Device Posture Rule with provided match input: %s", err)
 	}
 
-	err = setDevicePostureRuleInput(&updatedDevicePostureRule, d)
-	if err != nil {
-		return fmt.Errorf("error creating Device Posture Rule, invalid input: %s", err)
-	}
-
+	setDevicePostureRuleInput(&updatedDevicePostureRule, d)
 	log.Printf("[DEBUG] Updating Cloudflare Device Posture Rule from struct: %+v", updatedDevicePostureRule)
 
 	devicePostureRule, err := client.UpdateDevicePostureRule(context.Background(), accountID, updatedDevicePostureRule)
@@ -254,7 +251,7 @@ func resourceCloudflareDevicePostureRuleImport(d *schema.ResourceData, meta inte
 	return []*schema.ResourceData{d}, nil
 }
 
-func setDevicePostureRuleInput(rule *cloudflare.DevicePostureRule, d *schema.ResourceData, ruleType string) error {
+func setDevicePostureRuleInput(rule *cloudflare.DevicePostureRule, d *schema.ResourceData) {
 	if _, ok := d.GetOk("input"); ok {
 		input := cloudflare.DevicePostureRuleInput{}
 		if inputID, ok := d.GetOk("input.0.id"); ok {
@@ -292,31 +289,6 @@ func setDevicePostureRuleInput(rule *cloudflare.DevicePostureRule, d *schema.Res
 		}
 		rule.Input = input
 	}
-
-	return validateRuleInput(rule.Type, rule.Input)
-
-}
-
-func validateRuleInput(ruleType string, input cloudflare.DevicePostureRuleInput) error {
-	switch ruleType {
-	case "file":
-		if input.Path == "" {
-			return fmt.Errorf("file rule requires input.path")
-		}
-	case "application":
-		if input.Path == "" {
-			return fmt.Errorf("application rule requires input.path")
-		}
-	case "serial_number":
-		if input.ID == "" {
-			return fmt.Errorf("serial_number rule requires input.id")
-		}
-	case "domain_joined":
-		if input.Domain == "" {
-			return fmt.Errorf("serial_number rule requires input.domain")
-		}
-	}
-	return nil
 }
 
 func setDevicePostureRuleMatch(rule *cloudflare.DevicePostureRule, d *schema.ResourceData) error {
