@@ -239,4 +239,4 @@ require (
 
 // Use custom version that supports configuration as flags until it lands upstream.
 replace github.com/hashicorp/terraform-plugin-docs v0.5.1 => github.com/jacobbednarz/terraform-plugin-docs v0.5.1-0.20211203000021-49f8b60f2070
-replace github.com/cloudflare/cloudflare-go v0.32.0 => github.com/aplunk/cloudflare-go v0.99.0
+replace github.com/cloudflare/cloudflare-go v0.32.0 => github.com/aplunk/cloudflare-go v0.99.1

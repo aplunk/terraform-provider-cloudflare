@@ -22,7 +22,7 @@ func resourceCloudflareDevicePostureIntegrationSchema() map[string]*schema.Schem
 		"type": {
 			Type:         schema.TypeString,
 			Required:     true,
-			ValidateFunc: validation.StringInSlice([]string{ws1}, false),
+			ValidateFunc: validation.StringInSlice([]string{ws1, crowdstrike, uptycs}, false),
 		},
 		"identifier": {
 			Type:     schema.TypeString,
@@ -51,7 +51,16 @@ func resourceCloudflareDevicePostureIntegrationSchema() map[string]*schema.Schem
 						Type:     schema.TypeString,
 						Optional: true,
 					},
+					"customer_id": {
+						Type:     schema.TypeString,
+						Optional: true,
+					},
 					"client_secret": {
+						Type:      schema.TypeString,
+						Optional:  true,
+						Sensitive: true,
+					},
+					"client_key": {
 						Type:      schema.TypeString,
 						Optional:  true,
 						Sensitive: true,

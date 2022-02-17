@@ -12,9 +12,12 @@ func resourceCloudflareDevicePostureRuleSchema() map[string]*schema.Schema {
 			Required: true,
 		},
 		"type": {
-			Type:         schema.TypeString,
-			Required:     true,
-			ValidateFunc: validation.StringInSlice([]string{"serial_number", "file", "application", "gateway", "warp", "domain_joined", "os_version", "disk_encryption", "firewall", "workspace_one"}, false),
+			Type:     schema.TypeString,
+			Required: true,
+			ValidateFunc: validation.StringInSlice(
+				[]string{"serial_number", "file", "application", "gateway", "warp", "domain_joined", "os_version", "disk_encryption", "firewall", "workspace_one", "uptycs", "crowdstrike"},
+				false,
+			),
 		},
 		"name": {
 			Type:     schema.TypeString,
@@ -102,6 +105,12 @@ func resourceCloudflareDevicePostureRuleSchema() map[string]*schema.Schema {
 						ValidateFunc: validation.StringInSlice([]string{">", ">=", "<", "<=", "=="}, true),
 						Description:  "The version comparison operator.",
 					},
+					"score_operator": {
+						Type:         schema.TypeString,
+						Optional:     true,
+						ValidateFunc: validation.StringInSlice([]string{">", ">=", "<", "<=", "=="}, true),
+						Description:  "The uptycs version comparison operator.",
+					},
 					"domain": {
 						Type:        schema.TypeString,
 						Optional:    true,
@@ -117,6 +126,11 @@ func resourceCloudflareDevicePostureRuleSchema() map[string]*schema.Schema {
 						Optional:     true,
 						ValidateFunc: validation.StringInSlice([]string{"compliant", "noncompliant"}, true),
 						Description:  "The workspace one device compliance status.",
+					},
+					"score": {
+						Type:        schema.TypeInt,
+						Optional:    true,
+						Description: "The uptycs score.",
 					},
 				},
 			},

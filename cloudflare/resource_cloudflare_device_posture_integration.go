@@ -10,7 +10,11 @@ import (
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
 )
 
-const ws1 = "workspace_one"
+const (
+	ws1         = "workspace_one"
+	uptycs      = "uptycs"
+	crowdstrike = "crowdstrike"
+)
 
 func resourceCloudflareDevicePostureIntegration() *schema.Resource {
 	return &schema.Resource{
@@ -166,10 +170,27 @@ func setDevicePostureIntegrationConfig(integration *cloudflare.DevicePostureInte
 			if config.ApiUrl, ok = d.Get("config.0.api_url").(string); !ok {
 				return fmt.Errorf("api_url is a string")
 			}
-			integration.Config = config
+		case uptycs:
+			if config.ClientKey, ok = d.Get("config.0.client_key").(string); !ok {
+				return fmt.Errorf("client_key is a string")
+			}
+			if config.ClientSecret, ok = d.Get("config.0.client_secret").(string); !ok {
+				return fmt.Errorf("client_secret is a string")
+			}
+			if config.CustomerID, ok = d.Get("config.0.customer_id").(string); !ok {
+				return fmt.Errorf("client_id is a string")
+			}
+		case crowdstrike:
+			if config.ClientID, ok = d.Get("config.0.client_id").(string); !ok {
+				return fmt.Errorf("client_id is a string")
+			}
+			if config.ClientSecret, ok = d.Get("config.0.client_secret").(string); !ok {
+				return fmt.Errorf("client_secret is a string")
+			}
 		default:
 			return fmt.Errorf("unsupported integration type:%s", integration.Type)
 		}
+		integration.Config = config
 	}
 	return nil
 }
@@ -180,6 +201,8 @@ func convertIntegrationConfigToSchema(input cloudflare.DevicePostureIntegrationC
 		"client_secret": input.ClientSecret,
 		"auth_url":      input.AuthUrl,
 		"api_url":       input.ApiUrl,
+		"client_key":    input.ClientKey,
+		"customer_id":   input.CustomerID,
 	}
 	return []interface{}{m}
 }

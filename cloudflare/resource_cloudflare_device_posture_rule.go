@@ -187,6 +187,12 @@ func setDevicePostureRuleInput(rule *cloudflare.DevicePostureRule, d *schema.Res
 		if connectionID, ok := d.GetOk("input.0.connection_id"); ok {
 			input.ConnectionID = connectionID.(string)
 		}
+		if score, ok := d.GetOk("input.0.score"); ok {
+			input.Score = score.(int)
+		}
+		if scoreOperator, ok := d.GetOk("input.0.score_operator"); ok {
+			input.ScoreOperator = scoreOperator.(string)
+		}
 		rule.Input = input
 	}
 }
@@ -237,6 +243,8 @@ func convertInputToSchema(input cloudflare.DevicePostureRuleInput) []map[string]
 		"domain":            input.Domain,
 		"compliance_status": input.ComplianceStatus,
 		"connection_id":     input.ConnectionID,
+		"score":             input.Score,
+		"score_operator":    input.ScoreOperator,
 	}
 
 	return []map[string]interface{}{m}
